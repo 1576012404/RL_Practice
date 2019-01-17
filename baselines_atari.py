@@ -1,12 +1,16 @@
 import gym
 import numpy as np
 
-from stable_baselines import PPO2
+# from stable_baselines import PPO2
+from baselines.ppo2 import ppo2
 
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.cmd_util import make_atari_env
-from stable_baselines.common.vec_env import VecFrameStack, SubprocVecEnv, VecNormalize, DummyVecEnv
+# from stable_baselines.common.vec_env import VecFrameStack, SubprocVecEnv, VecNormalize, DummyVecEnv
+from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines.ddpg import AdaptiveParamNoiseSpec, NormalActionNoise, OrnsteinUhlenbeckActionNoise
+
+from baselines.common.atari_wrappers import make_atari, wrap_deepmind
 
 class MyReward(gym.Wrapper):
     def __init__(self, env):
@@ -36,9 +40,16 @@ class MyReward(gym.Wrapper):
         return obs, reward, done, info
 
 
-def EnvFunc(env_id,n_envs,iSeed):
-    env = make_atari_env(env_id, num_env=n_envs, seed=iSeed)
-    return env
+def EnvFunc(iSeed):
+    def InnerFunc():
+        env_id = "PongNoFrameskip-v4"
+        oEnv = make_atari(env_id)
+        oEnv.seed(iSeed)
+        print("set seed",iSeed)
+        oEnv=wrap_deepmind(oEnv,frame_stack=True)
+        oEnv=MyReward(oEnv)
+        return oEnv
+    return InnerFunc
 
 
 def linear_schedule(initial_value):
@@ -48,17 +59,36 @@ def linear_schedule(initial_value):
     return func
 
 
+
+
+
+
+
+
+
+
 learning_rate=linear_schedule(2.5e-4)
 clip_range=linear_schedule(0.1)
 n_timesteps=10000000
-hyperparmas ={'policy': 'CnnPolicy', 'n_steps': 128, 'noptepochs': 4, 'nminibatches': 4, 'learning_rate': learning_rate, 'cliprange':clip_range ,
+hyperparmas ={'nsteps': 128, 'noptepochs': 4, 'nminibatches': 4, 'lr': learning_rate, 'cliprange':clip_range ,
             'vf_coef': 0.5, 'ent_coef': 0.01}
 def Train():
-    env_id = "PongNoFrameskip-v4"
-    env=EnvFunc(env_id,8,0)
-    model = PPO2(env=env, verbose=1, **hyperparmas)
+    num_env = 8
+    env = SubprocVecEnv([EnvFunc(i) for i in range(num_env)])
 
-    model.learn(n_timesteps)
+    act = ppo2.learn(
+        network="cnn",
+        env=env,
+        total_timesteps=n_timesteps,
+        **hyperparmas,
+
+        # value_network="copy"
+    )
+
+
+    # model = ppo2(env=env, verbose=1, **hyperparmas)
+    #
+    # model.learn(n_timesteps)
 
 
 
