@@ -1,6 +1,6 @@
 import tensorflow as tf
 import functools
-from utils import get_session,save_variables, load_variables
+from simple_baselines.utils import get_session,save_variables, load_variables,initialize
 
 class Model():
     def __init__(self,policy,ob_space,ac_space,nbatch_act,nbatch_train,nsteps,ent_coef,vf_coef,max_grad_norm):
@@ -9,12 +9,12 @@ class Model():
         with tf.variable_scope("ppo_model",reuse=tf.AUTO_REUSE):
             act_model=policy(nbatch_act,1,sess)
             train_model=policy(nbatch_train,nsteps,sess)
-        self.A=A=train_model.pdtype.sample_shape([None])
+        self.A=A=train_model.pdtype.sample_placeholder([None])
         self.ADV=ADV=tf.placeholder(tf.float32,[None])
         self.R=R=tf.placeholder(tf.float32,[None])
 
-        self.OLDNEGLOGP=OLDNEGLOGP=tf.palceholder(tf.float32,[None])
-        self.OLDVPRED=OLDVPRED=tf.placeholder(tf.float32,[])
+        self.OLDNEGLOGP=OLDNEGLOGP=tf.placeholder(tf.float32,[None])
+        self.OLDVPRED=OLDVPRED=tf.placeholder(tf.float32,[None])
         self.LR=LR=tf.placeholder(tf.float32,[])
 
         self.CLIPRANGE=CLIPRANGE=tf.placeholder(tf.float32,[])
@@ -27,7 +27,7 @@ class Model():
         vf_losses1=tf.square(vpred-R)
         vf_losses2=tf.square(vpredclipped-R)
 
-        vf_loss=0.5*tf.reduce_mean(tf.maxmum(vf_losses1,vf_losses2))
+        vf_loss=0.5*tf.reduce_mean(tf.maximum(vf_losses1,vf_losses2))
 
         ratio=tf.exp(OLDNEGLOGP-neglogp)
         pg_losses=-ADV*ratio
@@ -36,11 +36,11 @@ class Model():
         pg_loss=tf.reduce_mean(tf.maximum(pg_losses,pg_losses2))
 
         approxkl=0.5*tf.reduce_mean(tf.square(neglogp-OLDNEGLOGP))
-        clipfrac=tf.reducemean(tf.to_float(tf.greater(tf.abs(ratio-1),CLIPRANGE)))
+        clipfrac=tf.reduce_mean(tf.to_float(tf.greater(tf.abs(ratio-1),CLIPRANGE)))
 
         loss=pg_loss-entropy*ent_coef+vf_loss*vf_coef
 
-        params=tf.trainable_variables("ppo2_model")
+        params=tf.trainable_variables("ppo_model")
         self.trainer=tf.train.AdamOptimizer(learning_rate=LR,epsilon=1e-5)
 
         grads_and_var=self.trainer.compute_gradients(loss,params)
@@ -63,6 +63,8 @@ class Model():
 
         self.save=functools.partial(save_variables,sess=sess)
         self.load=functools.partial(load_variables,sess=sess)
+
+        initialize()
 
     def train(self,lr,cliprange,obs,returns,masks,actions,values,neglogps):
 

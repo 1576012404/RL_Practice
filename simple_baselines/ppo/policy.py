@@ -1,8 +1,8 @@
 import tensorflow as tf
 
 from baselines.common.distributions import make_pdtype
-from common_model import get_network_builder
-from utils import observation_placeholder,encode_observation,fc,adjust_shape
+from simple_baselines.common_model import get_network_builder
+from simple_baselines.utils import observation_placeholder,encode_observation,fc,adjust_shape
 
 class PolicyWithValue():
 
@@ -20,7 +20,7 @@ class PolicyWithValue():
 
         self.vf=fc(vf_latent,"vf",1)
         print("self.vf",self.vf.shape)
-        self.vf=self.vf[:0]
+        self.vf=self.vf[:,0]
         print("vf2",self.vf.shape)
 
     def _evaluate(self,variable,observation,**extra_feed):

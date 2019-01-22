@@ -22,14 +22,14 @@ def make_session(config=None,num_cpu=None,make_default=False,graph=None):
 
 
 
-def get_session(config):
+def get_session(config=None):
     sess=tf.get_default_session()
     if sess is None:
         sess=make_session(config=config,make_default=True)
     return sess
 
-def orth_init_(scale=1.0):
-    def _orth_init(shape,dtype,partition_info=None):
+def ortho_init(scale=1.0):
+    def _ortho_init(shape,dtype,partition_info=None):
         shape=tuple(shape)
         if len(shape)==2:
             flat_shape=shape
@@ -42,6 +42,7 @@ def orth_init_(scale=1.0):
         q=u if u.shape==flat_shape else v
         q=q.reshape(shape)
         return (scale*q[:shape[0],:shape[1]]).astype(np.float32)
+    return _ortho_init
 
 
 def fc(x,scope,nh,init_scale=1.0,init_bias=0.0):
@@ -85,6 +86,19 @@ def adjust_shape(data,placeholder):
     placeholder_shape=[x or -1 for x in placeholder.shape.as_list()]
 
     return np.reshape(data,placeholder_shape)
+
+ALREADY_INITIALIZED=set()
+def initialize():
+    new_variables=set(tf.global_variables())-ALREADY_INITIALIZED
+    get_session().run(tf.variables_initializer(new_variables))
+    ALREADY_INITIALIZED.update(new_variables)
+
+
+
+def constfn(val):
+    def f(_):
+        return val
+    return f
 
 
 def save_variables(save_path, variables=None, sess=None):
